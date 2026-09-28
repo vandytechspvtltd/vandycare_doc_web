@@ -822,4 +822,137 @@ th {
   .local-video video {
     min-height: 220px;
   }
+  /* =====================================================
+   INCOMING CALL - CLICK FIX
+   ===================================================== */
+
+.incoming-call-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+
+  z-index: 999999 !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+
+  padding: 20px;
+
+  background: rgba(10, 30, 50, 0.58);
+
+  backdrop-filter: blur(4px);
+
+  /* IMPORTANT */
+  pointer-events: auto !important;
+}
+
+.incoming-call-card {
+  position: relative !important;
+
+  z-index: 1000000 !important;
+
+  pointer-events: auto !important;
+
+  width: min(420px, 100%);
+
+  background: #ffffff;
+
+  border: 1px solid #dce6f0;
+
+  border-radius: 20px;
+
+  padding: 32px;
+
+  text-align: center;
+
+  box-shadow:
+    0 25px 70px rgba(16, 47, 80, 0.28);
+}
+
+.incoming-call-actions {
+  position: relative !important;
+
+  z-index: 1000001 !important;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  gap: 12px;
+
+  pointer-events: auto !important;
+}
+
+.incoming-call-actions button {
+  position: relative !important;
+
+  z-index: 1000002 !important;
+
+  min-width: 120px;
+
+  pointer-events: auto !important;
+
+  cursor: pointer !important;
+
+  touch-action: manipulation;
+}
+
+/* ACCEPT */
+.incoming-call-actions .accept {
+  border: 0;
+
+  background: #2e9d59;
+
+  color: white;
+
+  padding: 12px 18px;
+
+  border-radius: 9px;
+
+  font-weight: 800;
+
+  cursor: pointer !important;
+}
+
+.incoming-call-actions .accept:hover {
+  background: #247d46;
+}
+
+.incoming-call-actions .accept:active {
+  transform: scale(0.97);
+}
+
+/* REJECT */
+.incoming-call-actions .danger {
+  border: 0;
+
+  background: #c93636;
+
+  color: white;
+
+  padding: 12px 18px;
+
+  border-radius: 9px;
+
+  font-weight: 800;
+
+  cursor: pointer !important;
+}
+
+.incoming-call-actions .danger:hover {
+  background: #a92b2b;
+}
+
+.incoming-call-actions .danger:active {
+  transform: scale(0.97);
+}
+
+/* Make sure popup children receive clicks */
+.incoming-call-card *,
+.incoming-call-actions,
+.incoming-call-actions button {
+  pointer-events: auto !important;
+}
 }
