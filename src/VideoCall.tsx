@@ -1,250 +1,418 @@
-import React, {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
 
-import {
-  io,
-  Socket,
-} from "socket.io-client";
-
-import { api } from "./api";
-
-type Props = {
+type VideoCallProps = {
   appointmentId: string;
   callSessionId: string;
   onClose: () => void;
 };
 
-const SOCKET_URL = (
-  import.meta.env.VITE_API_BASE_URL ||
-  "http://localhost:5000/v1"
-).replace(
-  /\/v1\/?$/,
-  ""
-);
+type IceServer = {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+};
 
 export default function VideoCall({
   appointmentId,
   callSessionId,
   onClose,
-}: Props) {
+}: VideoCallProps) {
+
   const localVideoRef =
-    useRef<HTMLVideoElement | null>(
-      null
-    );
+    useRef<HTMLVideoElement | null>(null);
 
   const remoteVideoRef =
-    useRef<HTMLVideoElement | null>(
-      null
-    );
+    useRef<HTMLVideoElement | null>(null);
 
   const socketRef =
     useRef<Socket | null>(null);
 
   const peerRef =
-    useRef<RTCPeerConnection | null>(
-      null
-    );
+    useRef<RTCPeerConnection | null>(null);
 
   const localStreamRef =
-    useRef<MediaStream | null>(
-      null
-    );
+    useRef<MediaStream | null>(null);
 
-  const mountedRef =
-    useRef(true);
+  const remoteStreamRef =
+    useRef<MediaStream | null>(null);
 
-  const [status, setStatus] =
-    useState("Connecting...");
+  const pendingIceRef =
+    useRef<RTCIceCandidateInit[]>([]);
+
+  const [connected, setConnected] =
+    useState(false);
 
   const [error, setError] =
     useState("");
 
+  const token =
+    localStorage.getItem(
+      "doctor_access_token"
+    );
+
+  // =====================================================
+  // START WEBRTC
+  // =====================================================
+
   useEffect(() => {
-    mountedRef.current = true;
 
-    let socket: Socket | null = null;
+    let mounted = true;
 
-    async function start() {
+    async function startCall() {
+
       try {
-        setStatus(
-          "Preparing camera..."
+
+        if (!token) {
+          throw new Error(
+            "Doctor authentication token missing."
+          );
+        }
+
+        console.log(
+          "Starting doctor WebRTC call",
+          {
+            appointmentId,
+            callSessionId,
+          }
         );
 
+        // -------------------------------------------------
+        // 1. GET ICE SERVERS
+        // -------------------------------------------------
+
+        const apiBase =
+          (
+            import.meta.env.VITE_API_BASE_URL ||
+            "http://localhost:5000/v1"
+          ).replace(/\/$/, "");
+
         const iceResponse =
-          await api.iceServers();
-
-        const iceServers =
-          iceResponse?.data
-            ?.iceServers || [];
-
-        const stream =
-          await navigator.mediaDevices.getUserMedia(
+          await fetch(
+            `${apiBase}/video-call/ice-servers`,
             {
-              video: true,
-              audio: true,
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             }
           );
 
-        if (!mountedRef.current) {
-          stream
+        if (!iceResponse.ok) {
+          throw new Error(
+            `ICE server API failed: ${iceResponse.status}`
+          );
+        }
+
+        const iceData =
+          await iceResponse.json();
+
+        console.log(
+          "ICE servers response:",
+          iceData
+        );
+
+        const iceServers: IceServer[] =
+          iceData?.data?.iceServers ||
+          iceData?.iceServers ||
+          [];
+
+        if (!iceServers.length) {
+          throw new Error(
+            "No ICE servers received."
+          );
+        }
+
+        // -------------------------------------------------
+        // 2. GET CAMERA + MICROPHONE
+        // -------------------------------------------------
+
+        const localStream =
+          await navigator.mediaDevices.getUserMedia({
+            video: {
+              width: {
+                ideal: 1280,
+              },
+              height: {
+                ideal: 720,
+              },
+              facingMode: "user",
+            },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+
+        if (!mounted) {
+
+          localStream
             .getTracks()
-            .forEach((track) =>
-              track.stop()
-            );
+            .forEach((track) => track.stop());
 
           return;
         }
 
         localStreamRef.current =
-          stream;
+          localStream;
 
-        if (
-          localVideoRef.current
-        ) {
+        console.log(
+          "Local audio tracks:",
+          localStream.getAudioTracks()
+        );
+
+        console.log(
+          "Local video tracks:",
+          localStream.getVideoTracks()
+        );
+
+        if (localVideoRef.current) {
+
           localVideoRef.current.srcObject =
-            stream;
+            localStream;
+
+          localVideoRef.current.muted =
+            true;
+
+          localVideoRef.current.autoplay =
+            true;
+
+          localVideoRef.current.playsInline =
+            true;
+
+          await localVideoRef.current
+            .play()
+            .catch(() => {});
         }
+
+        // -------------------------------------------------
+        // 3. CREATE PEER CONNECTION
+        // -------------------------------------------------
 
         const peer =
           new RTCPeerConnection({
-            iceServers,
+            iceServers:
+              iceServers.map((server) => ({
+                urls: server.urls,
+                username: server.username,
+                credential: server.credential,
+              })),
           });
 
-        peerRef.current = peer;
+        peerRef.current =
+          peer;
 
-        stream
+        // -------------------------------------------------
+        // 4. ADD LOCAL AUDIO + VIDEO
+        // -------------------------------------------------
+
+        localStream
           .getTracks()
           .forEach((track) => {
+
+            console.log(
+              "Adding local track:",
+              track.kind,
+              track.id,
+              track.enabled
+            );
+
             peer.addTrack(
               track,
-              stream
+              localStream
             );
           });
 
-        // ==========================================
-        // REMOTE TRACK
-        // ==========================================
+        // -------------------------------------------------
+        // 5. REMOTE STREAM
+        // -------------------------------------------------
 
-        peer.ontrack = (
-          event
-        ) => {
-          const remoteStream =
-            event.streams?.[0];
+        const remoteStream =
+          new MediaStream();
+
+        remoteStreamRef.current =
+          remoteStream;
+
+        if (remoteVideoRef.current) {
+
+          remoteVideoRef.current.srcObject =
+            remoteStream;
+
+          remoteVideoRef.current.autoplay =
+            true;
+
+          remoteVideoRef.current.playsInline =
+            true;
+
+          remoteVideoRef.current.muted =
+            false;
+        }
+
+        // -------------------------------------------------
+        // 6. REMOTE TRACK
+        // -------------------------------------------------
+
+        peer.ontrack = async (event) => {
+
+          console.log(
+            "REMOTE TRACK RECEIVED:",
+            event.track.kind,
+            event.track.id,
+            "enabled=",
+            event.track.enabled
+          );
+
+          event.track.enabled =
+            true;
 
           if (
-            remoteStream &&
-            remoteVideoRef.current
+            remoteStreamRef.current &&
+            !remoteStreamRef.current
+              .getTracks()
+              .some(
+                (track) =>
+                  track.id === event.track.id
+              )
           ) {
+
+            remoteStreamRef.current.addTrack(
+              event.track
+            );
+          }
+
+          if (remoteVideoRef.current) {
+
             remoteVideoRef.current.srcObject =
-              remoteStream;
+              remoteStreamRef.current;
 
-            remoteVideoRef.current
-              .play()
-              .catch(() => {});
-          }
-        };
+            remoteVideoRef.current.muted =
+              false;
 
-        // ==========================================
-        // ICE CANDIDATE
-        // ==========================================
+            try {
+              await remoteVideoRef.current.play();
+            } catch (e) {
 
-        peer.onicecandidate = (
-          event
-        ) => {
-          if (
-            !event.candidate
-          ) {
-            return;
-          }
-
-          socketRef.current?.emit(
-            "call:ice-candidate",
-            {
-              callSessionId,
-
-              candidate: {
-                sdpMid:
-                  event.candidate
-                    .sdpMid,
-
-                sdpMLineIndex:
-                  event.candidate
-                    .sdpMLineIndex,
-
-                candidate:
-                  event.candidate
-                    .candidate,
-              },
+              console.warn(
+                "Remote video play blocked:",
+                e
+              );
             }
+          }
+
+          console.log(
+            "Remote stream tracks:",
+            remoteStreamRef.current
+              ?.getTracks()
+              .map((track) => ({
+                kind: track.kind,
+                id: track.id,
+                enabled: track.enabled,
+                readyState:
+                  track.readyState,
+              }))
           );
         };
 
-        // ==========================================
-        // CONNECTION STATE
-        // ==========================================
+        // -------------------------------------------------
+        // 7. ICE CANDIDATE
+        // -------------------------------------------------
+
+        peer.onicecandidate =
+          (event) => {
+
+            if (!event.candidate) {
+              return;
+            }
+
+            console.log(
+              "Sending doctor ICE:",
+              event.candidate
+            );
+
+            socketRef.current?.emit(
+              "call:ice-candidate",
+              {
+                callSessionId,
+                candidate: {
+                  candidate:
+                    event.candidate.candidate,
+                  sdpMid:
+                    event.candidate.sdpMid,
+                  sdpMLineIndex:
+                    event.candidate.sdpMLineIndex,
+                  usernameFragment:
+                    event.candidate.usernameFragment,
+                },
+              }
+            );
+          };
+
+        // -------------------------------------------------
+        // 8. CONNECTION STATE
+        // -------------------------------------------------
 
         peer.onconnectionstatechange =
           () => {
-            const state =
-              peer.connectionState;
 
             console.log(
-              "WebRTC connection state:",
-              state
+              "Doctor PeerConnection:",
+              peer.connectionState
             );
 
             if (
-              state ===
+              peer.connectionState ===
               "connected"
             ) {
-              setStatus(
-                "Consultation active"
-              );
+
+              setConnected(true);
             }
 
             if (
-              state ===
+              peer.connectionState ===
                 "failed" ||
-              state ===
-                "disconnected"
+              peer.connectionState ===
+                "disconnected" ||
+              peer.connectionState ===
+                "closed"
             ) {
-              console.warn(
-                "WebRTC connection:",
-                state
-              );
+
+              setConnected(false);
             }
           };
 
-        const token =
-          localStorage.getItem(
-            "doctor_access_token"
+        peer.oniceconnectionstatechange =
+          () => {
+
+            console.log(
+              "Doctor ICE state:",
+              peer.iceConnectionState
+            );
+          };
+
+        // -------------------------------------------------
+        // 9. SOCKET
+        // -------------------------------------------------
+
+        const socketUrl =
+          (
+            import.meta.env.VITE_API_BASE_URL ||
+            "http://localhost:5000/v1"
+          ).replace(
+            /\/v1\/?$/,
+            ""
           );
 
-        if (!token) {
-          throw new Error(
-            "Doctor access token missing."
+        const socket =
+          io(
+            socketUrl,
+            {
+              transports: ["websocket"],
+              auth: {
+                token,
+              },
+            }
           );
-        }
-
-        // ==========================================
-        // SOCKET CONNECTION
-        // ==========================================
-
-        socket = io(
-          SOCKET_URL,
-          {
-            transports: [
-              "websocket",
-            ],
-
-            auth: {
-              token,
-            },
-          }
-        );
 
         socketRef.current =
           socket;
@@ -252,16 +420,15 @@ export default function VideoCall({
         socket.on(
           "connect",
           () => {
+
             console.log(
-              "Video socket connected:",
-              socket?.id
+              "Doctor WebRTC socket connected:",
+              socket.id
             );
 
-            setStatus(
-              "Joining consultation..."
-            );
-
-            socket?.emit(
+            // IMPORTANT:
+            // Doctor joins after accept.
+            socket.emit(
               "call:join",
               {
                 callSessionId,
@@ -270,72 +437,139 @@ export default function VideoCall({
           }
         );
 
-        // ==========================================
-        // JOINED
-        // ==========================================
+        socket.on(
+          "connect_error",
+          (err) => {
+
+            console.error(
+              "Doctor socket error:",
+              err
+            );
+
+            if (mounted) {
+              setError(
+                err.message ||
+                "Socket connection failed."
+              );
+            }
+          }
+        );
+
+        // -------------------------------------------------
+        // 10. CALL JOINED
+        // -------------------------------------------------
 
         socket.on(
           "call:joined",
-          (data: any) => {
-            console.log(
-              "Call joined:",
-              data
-            );
+          (data) => {
 
-            setStatus(
-              "Waiting for patient..."
+            console.log(
+              "Doctor call:joined:",
+              data
             );
           }
         );
 
-        // ==========================================
-        // OFFER
-        // ==========================================
+        // -------------------------------------------------
+        // 11. PATIENT OFFER
+        // -------------------------------------------------
 
         socket.on(
           "call:offer",
-          async (
-            data: any
-          ) => {
+          async (data) => {
+
             try {
+
+              console.log(
+                "PATIENT OFFER RECEIVED:",
+                data
+              );
+
               const description =
                 data?.description;
 
-              if (
-                !description?.sdp ||
-                !description?.type
-              ) {
-                console.warn(
-                  "Invalid offer received"
+              if (!description?.sdp) {
+
+                console.error(
+                  "Invalid offer:",
+                  data
                 );
 
                 return;
               }
 
-              console.log(
-                "📨 Offer received"
-              );
+              const remoteDescription =
+                new RTCSessionDescription({
+                  type:
+                    description.type,
+                  sdp:
+                    description.sdp,
+                });
 
               await peer.setRemoteDescription(
-                new RTCSessionDescription(
-                  {
-                    type:
-                      description.type,
-
-                    sdp:
-                      description.sdp,
-                  }
-                )
+                remoteDescription
               );
+
+              console.log(
+                "Patient offer applied"
+              );
+
+              // ------------------------------------------------
+              // ADD QUEUED ICE AFTER REMOTE DESCRIPTION
+              // ------------------------------------------------
+
+              for (
+                const candidate
+                of pendingIceRef.current
+              ) {
+
+                try {
+
+                  await peer.addIceCandidate(
+                    candidate
+                  );
+
+                } catch (e) {
+
+                  console.error(
+                    "Queued ICE failed:",
+                    e
+                  );
+                }
+              }
+
+              pendingIceRef.current =
+                [];
+
+              // ------------------------------------------------
+              // CREATE ANSWER
+              // ------------------------------------------------
 
               const answer =
                 await peer.createAnswer();
+
+              console.log(
+                "Doctor answer created:",
+                {
+                  type: answer.type,
+                  sdpLength:
+                    answer.sdp?.length,
+                }
+              );
 
               await peer.setLocalDescription(
                 answer
               );
 
-              socket?.emit(
+              console.log(
+                "Doctor local answer set"
+              );
+
+              // ------------------------------------------------
+              // SEND ANSWER
+              // ------------------------------------------------
+
+              socket.emit(
                 "call:answer",
                 {
                   callSessionId,
@@ -343,298 +577,333 @@ export default function VideoCall({
                   description: {
                     type:
                       answer.type,
-
                     sdp:
                       answer.sdp,
                   },
                 }
               );
 
-              setStatus(
-                "Consultation active"
+              console.log(
+                "Doctor ANSWER sent"
               );
-            } catch (e) {
+
+            } catch (e: any) {
+
               console.error(
                 "Offer handling failed:",
                 e
               );
 
-              setError(
-                "Unable to establish video connection."
-              );
+              if (mounted) {
+
+                setError(
+                  e?.message ||
+                  "Unable to process video call offer."
+                );
+              }
             }
           }
         );
 
-        // ==========================================
-        // ICE CANDIDATE
-        // ==========================================
+        // -------------------------------------------------
+        // 12. REMOTE ICE
+        // -------------------------------------------------
 
         socket.on(
           "call:ice-candidate",
-          async (
-            data: any
-          ) => {
+          async (data) => {
+
             try {
+
               const candidate =
                 data?.candidate;
 
-              if (!candidate) {
+              if (
+                !candidate ||
+                !candidate.candidate
+              ) {
+                return;
+              }
+
+              console.log(
+                "REMOTE PATIENT ICE:",
+                candidate
+              );
+
+              if (
+                !peer.remoteDescription
+              ) {
+
+                console.log(
+                  "Queueing ICE until remote description is set"
+                );
+
+                pendingIceRef.current
+                  .push(candidate);
+
                 return;
               }
 
               await peer.addIceCandidate(
                 new RTCIceCandidate(
-                  {
-                    sdpMid:
-                      candidate.sdpMid,
-
-                    sdpMLineIndex:
-                      candidate.sdpMLineIndex,
-
-                    candidate:
-                      candidate.candidate,
-                  }
+                  candidate
                 )
               );
+
             } catch (e) {
+
               console.error(
-                "ICE candidate failed:",
+                "Remote ICE failed:",
                 e
               );
             }
           }
         );
 
-        // ==========================================
-        // CALL ENDED
-        // ==========================================
+        // -------------------------------------------------
+        // 13. CALL ENDED
+        // -------------------------------------------------
 
         socket.on(
           "call:ended",
-          () => {
-            setStatus(
-              "Call ended"
-            );
+          (data) => {
 
-            cleanup();
-
-            onClose();
-          }
-        );
-
-        // ==========================================
-        // CALL REJECTED
-        // ==========================================
-
-        socket.on(
-          "call:rejected",
-          () => {
-            setStatus(
-              "Call rejected"
-            );
-
-            cleanup();
-
-            onClose();
-          }
-        );
-
-        // ==========================================
-        // SOCKET CALL ERROR
-        // ==========================================
-
-        socket.on(
-          "call:error",
-          (data: any) => {
-            console.error(
-              "Call socket error:",
+            console.log(
+              "Call ended:",
               data
             );
 
-            setError(
-              data?.message ||
-                "Video call error."
-            );
+            cleanup();
           }
         );
+
+        // -------------------------------------------------
+        // 14. CALL REJECTED
+        // -------------------------------------------------
 
         socket.on(
-          "connect_error",
-          (err) => {
-            console.error(
-              "Socket connection error:",
-              err
+          "call:rejected",
+          (data) => {
+
+            console.log(
+              "Call rejected:",
+              data
             );
 
-            setError(
-              "Unable to connect to video call."
-            );
+            cleanup();
           }
         );
+
       } catch (e: any) {
+
         console.error(
-          "Video call start failed:",
+          "Doctor WebRTC initialization failed:",
           e
         );
 
-        setError(
-          e?.message ||
+        if (mounted) {
+
+          setError(
+            e?.message ||
             "Unable to start video call."
-        );
+          );
+        }
       }
     }
 
-    start();
+    startCall();
 
     return () => {
-      mountedRef.current =
-        false;
+
+      mounted = false;
 
       cleanup();
     };
+
   }, [
     appointmentId,
     callSessionId,
+    token,
   ]);
 
-  // ======================================================
+  // =====================================================
   // CLEANUP
-  // ======================================================
+  // =====================================================
 
   function cleanup() {
+
+    console.log(
+      "Cleaning doctor WebRTC"
+    );
+
+    try {
+
+      socketRef.current
+        ?.removeAllListeners();
+
+      socketRef.current
+        ?.disconnect();
+
+    } catch {}
+
+    socketRef.current =
+      null;
+
+    try {
+
+      peerRef.current
+        ?.close();
+
+    } catch {}
+
+    peerRef.current =
+      null;
+
+    pendingIceRef.current =
+      [];
+
     localStreamRef.current
       ?.getTracks()
-      .forEach((track) =>
-        track.stop()
+      .forEach(
+        (track) => track.stop()
       );
 
     localStreamRef.current =
       null;
 
-    if (
-      localVideoRef.current
-    ) {
-      localVideoRef.current.srcObject =
-        null;
-    }
+    remoteStreamRef.current
+      ?.getTracks()
+      .forEach(
+        (track) => track.stop()
+      );
 
-    if (
-      remoteVideoRef.current
-    ) {
-      remoteVideoRef.current.srcObject =
-        null;
-    }
-
-    peerRef.current
-      ?.close();
-
-    peerRef.current =
-      null;
-
-    socketRef.current
-      ?.removeAllListeners();
-
-    socketRef.current
-      ?.disconnect();
-
-    socketRef.current =
+    remoteStreamRef.current =
       null;
   }
 
-  // ======================================================
+  // =====================================================
   // END CALL
-  // ======================================================
+  // =====================================================
 
   async function endCall() {
+
     try {
-      await api.endVideoCall(
-        appointmentId
+
+      const apiBase =
+        (
+          import.meta.env.VITE_API_BASE_URL ||
+          "http://localhost:5000/v1"
+        ).replace(/\/$/, "");
+
+      await fetch(
+        `${apiBase}/doctor-portal/appointments/${encodeURIComponent(
+          appointmentId
+        )}/call/end`,
+        {
+          method: "POST",
+
+          headers: {
+            Authorization:
+              `Bearer ${token}`,
+          },
+        }
       );
+
     } catch (e) {
+
       console.error(
         "End call API failed:",
         e
       );
+
+    } finally {
+
+      socketRef.current?.emit(
+        "call:end",
+        {
+          callSessionId,
+        }
+      );
+
+      cleanup();
+
+      onClose();
     }
-
-    socketRef.current?.emit(
-      "call:end",
-      {
-        callSessionId,
-      }
-    );
-
-    cleanup();
-
-    onClose();
   }
 
-  // ======================================================
+  // =====================================================
   // UI
-  // ======================================================
+  // =====================================================
 
   return (
-    <div className="video-call">
+    <div className="video-call-container">
 
-      <div className="video-header">
+      <div className="video-call-header">
+
         <div>
           <h2>
             Video Consultation
           </h2>
 
           <span>
-            {status}
+            {connected
+              ? "Connected"
+              : "Connecting..."}
           </span>
         </div>
 
         <button
           type="button"
           onClick={endCall}
-          className="danger"
         >
           End Call
         </button>
+
       </div>
 
       {error && (
-        <div className="alert error">
+        <div className="video-call-error">
           {error}
         </div>
       )}
 
       <div className="video-grid">
 
+        {/* REMOTE */}
         <div className="remote-video">
+
           <video
-            ref={
-              remoteVideoRef
-            }
+            ref={remoteVideoRef}
             autoPlay
             playsInline
+            controls={false}
           />
 
           <span>
             Patient
           </span>
+
         </div>
 
+        {/* LOCAL */}
         <div className="local-video">
+
           <video
-            ref={
-              localVideoRef
-            }
+            ref={localVideoRef}
             autoPlay
             muted
             playsInline
+            controls={false}
           />
 
           <span>
             You
           </span>
+
         </div>
 
       </div>
+
     </div>
   );
 }
