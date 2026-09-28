@@ -667,7 +667,7 @@ th {
 
   display: block;
 
-  object-fit: cover;
+  object-fit: contain;
 
   background: #020b14;
 }
