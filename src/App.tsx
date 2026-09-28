@@ -1,5 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState,
+} from "react";
+import { io, Socket } from "socket.io-client";
 import { api } from "./api";
+import VideoCall from "./VideoCall";
 
 type View =
   | "overview"
@@ -8,6 +13,15 @@ type View =
   | "profile";
 
 type Doctor = Record<string, any>;
+
+type IncomingCall = {
+  id: string;
+  appointmentId: string;
+  patientId: string;
+  doctorId: string;
+  status: string;
+  createdAt?: string;
+};
 
 const arr = (x: any): any[] => {
   if (Array.isArray(x)) return x;
@@ -133,7 +147,9 @@ function Login({
             className="primary full"
             disabled={busy}
           >
-            {busy ? "Signing In..." : "Sign In"}
+            {busy
+              ? "Signing In..."
+              : "Sign In"}
           </button>
         </form>
 
@@ -557,17 +573,209 @@ function App() {
   const [loading, setLoading] =
     useState(false);
 
+  // ====================================================
+  // VIDEO CALL STATE
+  // ====================================================
+
+  const [videoCall, setVideoCall] =
+    useState<{
+      appointmentId: string;
+      callSessionId: string;
+    } | null>(null);
+
+  // ====================================================
+  // INCOMING CALL STATE
+  // ====================================================
+
+  const [incomingCall, setIncomingCall] =
+    useState<IncomingCall | null>(null);
+
   const logged =
     !!doctor &&
     !!localStorage.getItem(
       "doctor_access_token"
     );
 
+  // ====================================================
+  // LOAD DATA
+  // ====================================================
+
   useEffect(() => {
     if (logged) {
       load();
     }
   }, [logged]);
+
+  // ====================================================
+  // GLOBAL VIDEO CALL SOCKET
+  // ====================================================
+
+  useEffect(() => {
+    if (!logged) return;
+
+    const token = localStorage.getItem(
+      "doctor_access_token"
+    );
+
+    if (!token) return;
+
+    const socketUrl = (
+      import.meta.env.VITE_API_BASE_URL ||
+      "http://localhost:5000/v1"
+    ).replace(/\/v1\/?$/, "");
+
+    const socket: Socket = io(
+      socketUrl,
+      {
+        transports: ["websocket"],
+        auth: {
+          token,
+        },
+      }
+    );
+
+    console.log(
+      "Creating doctor call socket..."
+    );
+
+    socket.on("connect", () => {
+      console.log(
+        "Doctor call socket connected:",
+        socket.id
+      );
+    });
+
+    // ==================================================
+    // INCOMING CALL
+    // ==================================================
+
+    socket.on(
+      "call:incoming",
+      (session: IncomingCall) => {
+        console.log(
+          "📞 Incoming video call:",
+          session
+        );
+
+        if (
+          session?.status === "RINGING" &&
+          session?.appointmentId
+        ) {
+          setIncomingCall(session);
+        }
+      }
+    );
+
+    // ==================================================
+    // CALL ACCEPTED
+    // ==================================================
+
+    socket.on(
+      "call:accepted",
+      (session: any) => {
+        console.log(
+          "✅ Call accepted:",
+          session
+        );
+      }
+    );
+
+    // ==================================================
+    // CALL ENDED
+    // ==================================================
+
+    socket.on(
+      "call:ended",
+      (session: any) => {
+        console.log(
+          "📴 Call ended:",
+          session
+        );
+
+        setIncomingCall(
+          (current) => {
+            if (
+              current?.id === session?.id ||
+              current?.appointmentId ===
+                session?.appointmentId
+            ) {
+              return null;
+            }
+
+            return current;
+          }
+        );
+
+        setVideoCall(
+          (current) => {
+            if (
+              current?.callSessionId ===
+              session?.id
+            ) {
+              return null;
+            }
+
+            return current;
+          }
+        );
+      }
+    );
+
+    // ==================================================
+    // CALL REJECTED
+    // ==================================================
+
+    socket.on(
+      "call:rejected",
+      (session: any) => {
+        console.log(
+          "❌ Call rejected:",
+          session
+        );
+
+        setIncomingCall(
+          (current) => {
+            if (
+              current?.id === session?.id ||
+              current?.appointmentId ===
+                session?.appointmentId
+            ) {
+              return null;
+            }
+
+            return current;
+          }
+        );
+      }
+    );
+
+    // ==================================================
+    // SOCKET ERROR
+    // ==================================================
+
+    socket.on(
+      "connect_error",
+      (error) => {
+        console.error(
+          "Doctor call socket error:",
+          error
+        );
+      }
+    );
+
+    return () => {
+      console.log(
+        "Disconnecting doctor call socket"
+      );
+
+      socket.removeAllListeners();
+      socket.disconnect();
+    };
+  }, [logged]);
+
+  // ====================================================
+  // LOAD DATA
+  // ====================================================
 
   async function load() {
     setLoading(true);
@@ -630,7 +838,14 @@ function App() {
     setLoading(false);
   }
 
+  // ====================================================
+  // LOGOUT
+  // ====================================================
+
   function logout() {
+    setIncomingCall(null);
+    setVideoCall(null);
+
     localStorage.removeItem(
       "doctor_access_token"
     );
@@ -646,6 +861,10 @@ function App() {
     setView("overview");
     setAuthPage("login");
   }
+
+  // ====================================================
+  // APPOINTMENT STATUS
+  // ====================================================
 
   async function changeAppointmentStatus(
     id: string,
@@ -669,6 +888,117 @@ function App() {
       );
     }
   }
+
+  // ====================================================
+  // ACCEPT VIDEO CALL
+  // ====================================================
+
+  async function acceptCall(
+    appointmentId: string
+  ) {
+    try {
+      const current: any =
+        await api.getVideoCall(
+          appointmentId
+        );
+
+      let session =
+        current?.data || null;
+
+      if (!session?.id) {
+        throw new Error(
+          "No incoming video call found for this appointment."
+        );
+      }
+
+      const currentStatus =
+        String(
+          session.status || ""
+        ).toUpperCase();
+
+      if (currentStatus !== "RINGING") {
+        throw new Error(
+          `Call is no longer ringing. Current status: ${currentStatus}`
+        );
+      }
+
+      const accepted: any =
+        await api.acceptVideoCall(
+          appointmentId
+        );
+
+      session =
+        accepted?.data || null;
+
+      if (
+        !session?.id ||
+        String(session.status).toUpperCase() !==
+          "ACCEPTED"
+      ) {
+        throw new Error(
+          "Call was not accepted successfully."
+        );
+      }
+
+      console.log(
+        "✅ Doctor accepted call:",
+        session
+      );
+
+      setIncomingCall(null);
+
+      setVideoCall({
+        appointmentId,
+        callSessionId: session.id,
+      });
+
+      setNotice("");
+    } catch (e: any) {
+      console.error(
+        "Accept call failed:",
+        e
+      );
+
+      setNotice(
+        e?.message ||
+          "Unable to accept video call."
+      );
+    }
+  }
+
+  // ====================================================
+  // REJECT VIDEO CALL
+  // ====================================================
+
+  async function rejectCall(
+    appointmentId: string
+  ) {
+    try {
+      await api.rejectVideoCall(
+        appointmentId
+      );
+
+      setIncomingCall(null);
+
+      setNotice(
+        "Video call rejected."
+      );
+    } catch (e: any) {
+      console.error(
+        "Reject call failed:",
+        e
+      );
+
+      setNotice(
+        e?.message ||
+          "Unable to reject video call."
+      );
+    }
+  }
+
+  // ====================================================
+  // AUTH SCREEN
+  // ====================================================
 
   if (!logged) {
     if (authPage === "register") {
@@ -694,6 +1024,10 @@ function App() {
     );
   }
 
+  // ====================================================
+  // STATS
+  // ====================================================
+
   const active =
     appointments.filter(
       (appointment) =>
@@ -716,8 +1050,70 @@ function App() {
         "COMPLETED"
     ).length;
 
+  // ====================================================
+  // MAIN UI
+  // ====================================================
+
   return (
     <div className="shell">
+
+      {/* ================================================
+          INCOMING CALL POPUP
+      ================================================= */}
+
+      {incomingCall && !videoCall && (
+        <div className="incoming-call-overlay">
+          <div className="incoming-call-card">
+
+            <div className="incoming-call-icon">
+              📞
+            </div>
+
+            <h2>
+              Incoming Video Call
+            </h2>
+
+            <p>
+              Patient is calling you...
+            </p>
+
+            <small>
+              Please accept the call to start
+              the consultation.
+            </small>
+
+            <div className="incoming-call-actions">
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() =>
+                  acceptCall(
+                    incomingCall.appointmentId
+                  )
+                }
+              >
+                Accept
+              </button>
+
+              <button
+                type="button"
+                className="danger"
+                onClick={() =>
+                  rejectCall(
+                    incomingCall.appointmentId
+                  )
+                }
+              >
+                Reject
+              </button>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
       <aside>
         <div className="brand">
           VANDYCINS
@@ -822,6 +1218,10 @@ function App() {
           </div>
         )}
 
+        {/* ============================================
+            OVERVIEW
+        ============================================ */}
+
         {view === "overview" && (
           <>
             <section className="welcome">
@@ -890,10 +1290,17 @@ function App() {
                 change={
                   changeAppointmentStatus
                 }
+                onVideoCall={
+                  acceptCall
+                }
               />
             </Panel>
           </>
         )}
+
+        {/* ============================================
+            APPOINTMENTS
+        ============================================ */}
 
         {view === "appointments" && (
           <Panel title="Appointments">
@@ -902,9 +1309,16 @@ function App() {
               change={
                 changeAppointmentStatus
               }
+              onVideoCall={
+                acceptCall
+              }
             />
           </Panel>
         )}
+
+        {/* ============================================
+            PATIENTS
+        ============================================ */}
 
         {view === "patients" && (
           <Panel title="Patients">
@@ -921,7 +1335,10 @@ function App() {
 
                 <tbody>
                   {patients.map(
-                    (patient, index) => (
+                    (
+                      patient,
+                      index
+                    ) => (
                       <tr
                         key={
                           patient.id ||
@@ -960,6 +1377,10 @@ function App() {
           </Panel>
         )}
 
+        {/* ============================================
+            PROFILE
+        ============================================ */}
+
         {view === "profile" && (
           <Profile
             p={profile}
@@ -972,6 +1393,24 @@ function App() {
                 JSON.stringify(data)
               );
             }}
+          />
+        )}
+
+        {/* ============================================
+            VIDEO CALL
+        ============================================ */}
+
+        {videoCall && (
+          <VideoCall
+            appointmentId={
+              videoCall.appointmentId
+            }
+            callSessionId={
+              videoCall.callSessionId
+            }
+            onClose={() =>
+              setVideoCall(null)
+            }
           />
         )}
       </main>
@@ -1038,11 +1477,17 @@ function Panel({
 function Appointments({
   rows,
   change,
+  onVideoCall,
 }: {
   rows: any[];
+
   change: (
     id: string,
     status: string
+  ) => void;
+
+  onVideoCall: (
+    appointmentId: string
   ) => void;
 }) {
   if (!rows.length) {
@@ -1065,7 +1510,10 @@ function Appointments({
 
         <tbody>
           {rows.map(
-            (appointment, index) => {
+            (
+              appointment,
+              index
+            ) => {
               const id = String(
                 appointment.id || ""
               );
@@ -1074,6 +1522,13 @@ function Appointments({
                 String(
                   appointment.status ||
                     "PENDING"
+                ).toUpperCase();
+
+              const consultationType =
+                String(
+                  appointment.consultationType ||
+                    appointment.type ||
+                    ""
                 ).toUpperCase();
 
               return (
@@ -1100,7 +1555,8 @@ function Appointments({
                   </td>
 
                   <td>
-                    {appointment.type ||
+                    {appointment.consultationType ||
+                      appointment.type ||
                       "Consultation"}
                   </td>
 
@@ -1142,6 +1598,20 @@ function Appointments({
                         >
                           Complete
                         </button>
+
+                        {consultationType ===
+                          "VIDEO" && (
+                          <button
+                            className="mini"
+                            onClick={() =>
+                              onVideoCall(
+                                id
+                              )
+                            }
+                          >
+                            Video Call
+                          </button>
+                        )}
                       </>
                     ) : (
                       "—"
@@ -1259,22 +1729,26 @@ function Profile({
             "clinicAddress",
             "Clinic Address",
           ],
-        ].map(([key, label]) => (
-          <div key={key}>
-            <label>{label}</label>
+        ].map(
+          ([key, label]) => (
+            <div key={key}>
+              <label>{label}</label>
 
-            <input
-              value={form[key] || ""}
-              onChange={(e) =>
-                setField(
-                  key,
-                  e.target.value
-                )
-              }
-              readOnly={key === "email"}
-            />
-          </div>
-        ))}
+              <input
+                value={form[key] || ""}
+                onChange={(e) =>
+                  setField(
+                    key,
+                    e.target.value
+                  )
+                }
+                readOnly={
+                  key === "email"
+                }
+              />
+            </div>
+          )
+        )}
 
         <div className="wide">
           <label>Bio</label>

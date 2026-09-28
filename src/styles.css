@@ -1,1 +1,825 @@
-*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:#f5f8fc;color:#122a45}button,input,textarea{font:inherit}button{cursor:pointer}.brand{font-weight:900;letter-spacing:2px;color:#215b91}.auth{min-height:100vh;display:grid;place-items:center;background:#eef5fc;padding:20px}.authcard{width:min(430px,100%);background:white;border:1px solid #dce6f0;border-radius:18px;padding:36px;box-shadow:0 15px 45px #173f6515}.auth h1{font-size:34px;margin:22px 0 7px}.auth p{color:#71839a}.auth form{display:grid;gap:8px;margin-top:25px}.auth label,label{font-size:13px;font-weight:700;margin-top:7px}.auth input,input,textarea{width:100%;padding:12px;border:1px solid #ccd9e6;border-radius:9px;outline:0}.primary{border:0;background:#205b94;color:white;padding:12px 18px;border-radius:9px;font-weight:800}.full{width:100%;margin-top:12px}.auth small{display:block;color:#7b8da0;margin-top:18px}.alert{padding:12px;border-radius:9px;margin:15px 0;font-size:13px}.error{background:#fff0f0;color:#a72b2b;border:1px solid #ffc5c5}.info{background:#eef7ff;color:#245b87;border:1px solid #cbe1f4}.shell{min-height:100vh;display:flex}.shell aside{position:fixed;inset:0 auto 0 0;width:235px;background:#102f50;color:white;padding:25px 17px;display:flex;flex-direction:column}.shell aside .brand{color:white}.shell aside small{color:#a9c1d8;margin:6px 9px 28px}.shell nav{display:grid;gap:5px}.shell nav button,.logout{border:0;background:transparent;color:#cbd9e7;text-align:left;padding:12px;border-radius:8px}.shell nav button:hover,.shell nav .active{background:#1d4f7d;color:white}.logout{margin-top:auto;border:1px solid #476783}.shell main{margin-left:235px;width:calc(100% - 235px);padding:28px 34px}header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}header h2{margin:0;font-size:26px}header span{color:#71839a;font-size:13px}.user{text-align:right}.user small{display:block;color:#71839a;margin-top:3px}.welcome,.panel,.stat{background:white;border:1px solid #dfe8f1;border-radius:15px}.welcome{padding:25px;display:flex;justify-content:space-between;align-items:center}.welcome em{font-style:normal;font-size:11px;font-weight:800;letter-spacing:1.3px;color:#3972a3}.welcome h1{margin:7px 0 4px}.welcome p{margin:0;color:#71839a}.welcome button,.panelhead button{border:1px solid #cbd9e7;background:white;color:#205b91;border-radius:8px;padding:9px 13px;font-weight:700}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:18px 0}.stat{padding:19px}.stat span{display:block;color:#71839a;font-size:13px}.stat b{display:block;font-size:29px;margin-top:8px}.panel{padding:21px;margin-top:18px}.panelhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.panelhead h3{margin:0}.link{border:0!important}.table{overflow:auto}table{width:100%;border-collapse:collapse;min-width:700px}th,td{text-align:left;padding:13px 11px;border-bottom:1px solid #e8eef4;font-size:13px}th{font-size:11px;color:#71839a;text-transform:uppercase;letter-spacing:.6px}.badge{padding:5px 8px;border-radius:20px;background:#eef3f8;font-size:11px;font-weight:800}.mini{border:1px solid #cbd9e7;background:white;color:#205b91;border-radius:6px;padding:5px 7px;font-size:11px;margin-right:5px}.empty{text-align:center;padding:40px;color:#7b8da0;background:#f8fafc;border-radius:9px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 17px}.grid>div{display:grid;gap:4px}.wide{grid-column:1/-1}@media(max-width:800px){.shell aside{width:190px}.shell main{margin-left:190px;width:calc(100% - 190px);padding:18px}.stats{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}@media(max-width:600px){.shell{display:block}.shell aside{position:static;width:100%;min-height:auto}.shell nav{display:flex;overflow:auto}.shell main{margin:0;width:100%}.user{display:none}.welcome{display:block}.welcome button{margin-top:15px}.stats{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, sans-serif;
+  background: #f5f8fc;
+  color: #122a45;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* =====================================================
+   BRAND
+===================================================== */
+
+.brand {
+  font-weight: 900;
+  letter-spacing: 2px;
+  color: #215b91;
+}
+
+/* =====================================================
+   AUTH
+===================================================== */
+
+.auth {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: #eef5fc;
+  padding: 20px;
+}
+
+.authcard {
+  width: min(430px, 100%);
+  background: white;
+  border: 1px solid #dce6f0;
+  border-radius: 18px;
+  padding: 36px;
+  box-shadow: 0 15px 45px #173f6515;
+}
+
+.auth h1 {
+  font-size: 34px;
+  margin: 22px 0 7px;
+}
+
+.auth p {
+  color: #71839a;
+}
+
+.auth form {
+  display: grid;
+  gap: 8px;
+  margin-top: 25px;
+}
+
+.auth label,
+label {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 7px;
+}
+
+.auth input,
+input,
+textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccd9e6;
+  border-radius: 9px;
+  outline: 0;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.primary {
+  border: 0;
+  background: #205b94;
+  color: white;
+  padding: 12px 18px;
+  border-radius: 9px;
+  font-weight: 800;
+}
+
+.primary:hover {
+  background: #174b7c;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.full {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.auth small {
+  display: block;
+  color: #7b8da0;
+  margin-top: 18px;
+}
+
+/* =====================================================
+   ALERTS
+===================================================== */
+
+.alert {
+  padding: 12px;
+  border-radius: 9px;
+  margin: 15px 0;
+  font-size: 13px;
+}
+
+.error {
+  background: #fff0f0;
+  color: #a72b2b;
+  border: 1px solid #ffc5c5;
+}
+
+.info {
+  background: #eef7ff;
+  color: #245b87;
+  border: 1px solid #cbe1f4;
+}
+
+/* =====================================================
+   MAIN SHELL
+===================================================== */
+
+.shell {
+  min-height: 100vh;
+  display: flex;
+}
+
+.shell aside {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 235px;
+  background: #102f50;
+  color: white;
+  padding: 25px 17px;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell aside .brand {
+  color: white;
+}
+
+.shell aside small {
+  color: #a9c1d8;
+  margin: 6px 9px 28px;
+}
+
+.shell nav {
+  display: grid;
+  gap: 5px;
+}
+
+.shell nav button,
+.logout {
+  border: 0;
+  background: transparent;
+  color: #cbd9e7;
+  text-align: left;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.shell nav button:hover,
+.shell nav .active {
+  background: #1d4f7d;
+  color: white;
+}
+
+.logout {
+  margin-top: auto;
+  border: 1px solid #476783;
+}
+
+.shell main {
+  margin-left: 235px;
+  width: calc(100% - 235px);
+  padding: 28px 34px;
+}
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+header h2 {
+  margin: 0;
+  font-size: 26px;
+}
+
+header span {
+  color: #71839a;
+  font-size: 13px;
+}
+
+.user {
+  text-align: right;
+}
+
+.user small {
+  display: block;
+  color: #71839a;
+  margin-top: 3px;
+}
+
+/* =====================================================
+   WELCOME
+===================================================== */
+
+.welcome,
+.panel,
+.stat {
+  background: white;
+  border: 1px solid #dfe8f1;
+  border-radius: 15px;
+}
+
+.welcome {
+  padding: 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.welcome em {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  color: #3972a3;
+}
+
+.welcome h1 {
+  margin: 7px 0 4px;
+}
+
+.welcome p {
+  margin: 0;
+  color: #71839a;
+}
+
+.welcome button,
+.panelhead button {
+  border: 1px solid #cbd9e7;
+  background: white;
+  color: #205b91;
+  border-radius: 8px;
+  padding: 9px 13px;
+  font-weight: 700;
+}
+
+/* =====================================================
+   STATS
+===================================================== */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin: 18px 0;
+}
+
+.stat {
+  padding: 19px;
+}
+
+.stat span {
+  display: block;
+  color: #71839a;
+  font-size: 13px;
+}
+
+.stat b {
+  display: block;
+  font-size: 29px;
+  margin-top: 8px;
+}
+
+/* =====================================================
+   PANEL
+===================================================== */
+
+.panel {
+  padding: 21px;
+  margin-top: 18px;
+}
+
+.panelhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.panelhead h3 {
+  margin: 0;
+}
+
+.link {
+  border: 0 !important;
+}
+
+/* =====================================================
+   TABLE
+===================================================== */
+
+.table {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 700px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 13px 11px;
+  border-bottom: 1px solid #e8eef4;
+  font-size: 13px;
+}
+
+th {
+  font-size: 11px;
+  color: #71839a;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.badge {
+  padding: 5px 8px;
+  border-radius: 20px;
+  background: #eef3f8;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.mini {
+  border: 1px solid #cbd9e7;
+  background: white;
+  color: #205b91;
+  border-radius: 6px;
+  padding: 5px 7px;
+  font-size: 11px;
+  margin-right: 5px;
+}
+
+.mini:hover {
+  background: #eef6fc;
+}
+
+/* =====================================================
+   EMPTY
+===================================================== */
+
+.empty {
+  text-align: center;
+  padding: 40px;
+  color: #7b8da0;
+  background: #f8fafc;
+  border-radius: 9px;
+}
+
+/* =====================================================
+   FORMS
+===================================================== */
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 17px;
+}
+
+.grid > div {
+  display: grid;
+  gap: 4px;
+}
+
+.wide {
+  grid-column: 1 / -1;
+}
+
+/* =====================================================
+   INCOMING VIDEO CALL OVERLAY
+===================================================== */
+
+.incoming-call-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 20px;
+
+  background: rgba(10, 30, 50, 0.58);
+
+  backdrop-filter: blur(4px);
+}
+
+/* =====================================================
+   INCOMING CALL CARD
+===================================================== */
+
+.incoming-call-card {
+  width: min(420px, 100%);
+
+  background: #ffffff;
+
+  border: 1px solid #dce6f0;
+
+  border-radius: 20px;
+
+  padding: 32px;
+
+  text-align: center;
+
+  box-shadow:
+    0 25px 70px rgba(16, 47, 80, 0.28);
+
+  animation: incomingCallPopup 0.25s ease-out;
+}
+
+@keyframes incomingCallPopup {
+  from {
+    opacity: 0;
+    transform: scale(0.92)
+      translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1)
+      translateY(0);
+  }
+}
+
+/* =====================================================
+   INCOMING CALL ICON
+===================================================== */
+
+.incoming-call-icon {
+  width: 76px;
+  height: 76px;
+
+  margin: 0 auto 18px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: #eef7ff;
+
+  color: #205b94;
+
+  font-size: 34px;
+
+  animation: callPulse 1.5s infinite;
+}
+
+@keyframes callPulse {
+  0% {
+    box-shadow:
+      0 0 0 0
+      rgba(32, 91, 148, 0.25);
+  }
+
+  70% {
+    box-shadow:
+      0 0 0 15px
+      rgba(32, 91, 148, 0);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 0
+      rgba(32, 91, 148, 0);
+  }
+}
+
+/* =====================================================
+   INCOMING CALL TEXT
+===================================================== */
+
+.incoming-call-card h2 {
+  margin: 0 0 8px;
+
+  font-size: 24px;
+
+  color: #122a45;
+}
+
+.incoming-call-card p {
+  margin: 0 0 8px;
+
+  color: #405a73;
+
+  font-size: 16px;
+}
+
+.incoming-call-card small {
+  display: block;
+
+  margin: 0 0 25px;
+
+  color: #71839a;
+
+  font-size: 13px;
+}
+
+/* =====================================================
+   ACCEPT / REJECT BUTTONS
+===================================================== */
+
+.incoming-call-actions {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+}
+
+.incoming-call-actions button {
+  min-width: 120px;
+}
+
+/* Reject button */
+
+.danger {
+  border: 0;
+
+  background: #c93636;
+
+  color: white;
+
+  padding: 12px 18px;
+
+  border-radius: 9px;
+
+  font-weight: 800;
+}
+
+.danger:hover {
+  background: #a92b2b;
+}
+
+.danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* =====================================================
+   VIDEO CALL
+===================================================== */
+
+.video-call {
+  position: fixed;
+  inset: 0;
+
+  z-index: 99990;
+
+  background: #081b2e;
+
+  color: white;
+
+  display: flex;
+  flex-direction: column;
+}
+
+.video-header {
+  min-height: 76px;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: space-between;
+
+  padding: 15px 22px;
+
+  background: #102f50;
+
+  border-bottom: 1px solid #294c6c;
+}
+
+.video-header h2 {
+  margin: 0 0 4px;
+
+  font-size: 20px;
+}
+
+.video-header span {
+  color: #a9c1d8;
+
+  font-size: 13px;
+}
+
+.video-grid {
+  flex: 1;
+
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, 1fr);
+
+  gap: 12px;
+
+  padding: 14px;
+}
+
+.remote-video,
+.local-video {
+  position: relative;
+
+  overflow: hidden;
+
+  min-height: 300px;
+
+  background: #020b14;
+
+  border-radius: 12px;
+
+  border: 1px solid #294c6c;
+}
+
+.remote-video video,
+.local-video video {
+  width: 100%;
+
+  height: 100%;
+
+  min-height: 300px;
+
+  display: block;
+
+  object-fit: cover;
+
+  background: #020b14;
+}
+
+.remote-video span,
+.local-video span {
+  position: absolute;
+
+  left: 12px;
+  bottom: 12px;
+
+  padding: 6px 10px;
+
+  border-radius: 6px;
+
+  background: rgba(0, 0, 0, 0.55);
+
+  color: white;
+
+  font-size: 12px;
+
+  font-weight: 700;
+}
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 800px) {
+  .shell aside {
+    width: 190px;
+  }
+
+  .shell main {
+    margin-left: 190px;
+
+    width: calc(100% - 190px);
+
+    padding: 18px;
+  }
+
+  .stats {
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wide {
+    grid-column: auto;
+  }
+
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .remote-video,
+  .local-video {
+    min-height: 250px;
+  }
+
+  .remote-video video,
+  .local-video video {
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 600px) {
+  .shell {
+    display: block;
+  }
+
+  .shell aside {
+    position: static;
+
+    width: 100%;
+
+    min-height: auto;
+  }
+
+  .shell nav {
+    display: flex;
+
+    overflow: auto;
+  }
+
+  .shell main {
+    margin: 0;
+
+    width: 100%;
+  }
+
+  .user {
+    display: none;
+  }
+
+  .welcome {
+    display: block;
+  }
+
+  .welcome button {
+    margin-top: 15px;
+  }
+
+  .stats {
+    grid-template-columns:
+      1fr 1fr;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wide {
+    grid-column: auto;
+  }
+
+  .incoming-call-card {
+    padding: 25px;
+  }
+
+  .incoming-call-actions {
+    flex-direction: column;
+  }
+
+  .incoming-call-actions button {
+    width: 100%;
+  }
+
+  .video-header {
+    padding: 12px 15px;
+  }
+
+  .video-header h2 {
+    font-size: 17px;
+  }
+
+  .video-grid {
+    grid-template-columns: 1fr;
+
+    overflow-y: auto;
+  }
+
+  .remote-video,
+  .local-video {
+    min-height: 220px;
+  }
+
+  .remote-video video,
+  .local-video video {
+    min-height: 220px;
+  }
+}
