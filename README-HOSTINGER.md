@@ -1,11 +1,11 @@
-# Vandycins Doctor Portal
+# VandyCare Doctor Portal
 
 React + Vite Doctor Web Portal, ready for local testing and Hostinger static hosting.
 
 ## Production API
 
 ```env
-VITE_API_BASE_URL=https://vandycinsapis.vandymondglobal.in/v1
+VITE_API_BASE_URL=https://vandycareapis.vandytrust.com/v1
 ```
 
 The frontend API client uses this production base URL by default when deployed.
@@ -19,8 +19,7 @@ npm install
 For local development, create `.env`:
 
 ```env
-VITE_API_BASE_URL=https://vandycinsapis.vandymondglobal.in/v1
-```
+VITE_API_BASE_URL=https://vandycareapis.vandytrust.com/v1
 
 Run:
 
