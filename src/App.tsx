@@ -5,7 +5,7 @@ import React, {
 import { io, Socket } from "socket.io-client";
 import { api } from "./api";
 import VideoCall from "./VideoCall";
-
+import logo from "./assets/vandycins-logo.png";
 type View =
   | "overview"
   | "appointments"
@@ -101,10 +101,14 @@ function Login({
   return (
     <div className="auth">
       <div className="authcard">
-        <div className="brand">VANDYCINS</div>
+        <div className="brand brand-logo"><img
+  src={logo}
+  alt="VandyCins"
+  className="brand-logo"
+/></div>
 
         <h1>Doctor Portal</h1>
-
+                      
         <p>
           Sign in to manage appointments and patients.
         </p>
@@ -283,7 +287,7 @@ function Registration({
   return (
     <div className="auth registration-page">
       <div className="authcard registration-card">
-        <div className="brand">VANDYCINS</div>
+        <div className="brand brand-logo"><img src="/vandycins-logo.png" alt="VandyCare" /></div>
 
         <h1>Doctor Registration</h1>
 
@@ -1115,8 +1119,8 @@ function App() {
       )}
 
       <aside>
-        <div className="brand">
-          VANDYCINS
+        <div className="brand brand-logo">
+          <img src="/vandycins-logo.png" alt="VandyCare" />
         </div>
 
         <small>Doctor Portal</small>
